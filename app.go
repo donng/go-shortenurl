@@ -26,7 +26,7 @@ func (a *App) Init() {
 }
 
 func (a *App) InitRoutes() {
-	//a.Router.Use(a.Middleware.templateMiddleware)
+	a.Router.Use(a.Middleware.LoggingHandler, a.Middleware.RecoverHandler)
 
 	a.Router.Post("/api/shorten_url", a.createShortUrl)
 	a.Router.Get("/api/shorten_url_info", getShortUrlInfo)
