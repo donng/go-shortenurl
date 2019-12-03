@@ -3,5 +3,5 @@ package main
 func main() {
 	app := App{}
 	app.Init()
-	app.Run()
+	app.Run(":8080")
 }
