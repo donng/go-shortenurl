@@ -20,6 +20,10 @@ type RequestParams struct {
 	Expire int
 }
 
+type ResponseParams struct {
+	ShortLink string
+}
+
 func (a *App) Init(env *Env) {
 	a.Router = chi.NewRouter()
 	a.Middleware = &Middleware{}
@@ -28,18 +32,18 @@ func (a *App) Init(env *Env) {
 }
 
 func (a *App) InitRoutes() {
-	a.Router.Use(a.Middleware.LoggingHandler, a.Middleware.RecoverHandler)
+	a.Router.Use(a.Middleware.LoggingHandler)
 
-	a.Router.Post("/api/shorten_url", a.createShortUrl)
-	a.Router.Get("/api/shorten_url_info", getShortUrlInfo)
-	a.Router.Get("/{shorten_url:[a-zA-Z0-9]{1,11}}", redirect)
+	a.Router.Post("/api/shorten", a.createShortLink)
+	a.Router.Get("/api/info", a.getShortLinkInfo)
+	a.Router.Get("/{link:[a-zA-Z0-9]{1,11}}", a.redirect)
 }
 
 func (a *App) Run(addr string) {
 	log.Fatal(http.ListenAndServe(addr, a.Router))
 }
 
-func (a *App) createShortUrl(w http.ResponseWriter, r *http.Request) {
+func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
 	var params RequestParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		respondWithError(w, StatusError{
@@ -50,13 +54,30 @@ func (a *App) createShortUrl(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	w.Write([]byte(fmt.Sprintf("hi %v, %v", params.Url, params.Expire)))
+	sid, err := a.Config.S.Shorten(params.Url, params.Expire)
+	if err != nil {
+		respondWithError(w, err)
+	} else {
+		respondWithJson(w, http.StatusOK, ResponseParams{ShortLink: sid})
+	}
 }
 
-func getShortUrlInfo(w http.ResponseWriter, r *http.Request) {
-
+func (a *App) getShortLinkInfo(w http.ResponseWriter, r *http.Request) {
+	eid := r.Context().Value("link").(string)
+	detail, err := a.Config.S.ShortLinkInfo(eid)
+	if err != nil {
+		respondWithError(w, err)
+	} else {
+		respondWithJson(w, http.StatusOK, detail)
+	}
 }
 
-func redirect(w http.ResponseWriter, r *http.Request) {
-
+func (a *App) redirect(w http.ResponseWriter, r *http.Request) {
+	eid := chi.URLParam(r, "link")
+	url, err := a.Config.S.UnShorten(eid)
+	if err != nil {
+		respondWithError(w, err)
+	} else {
+		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	}
 }
