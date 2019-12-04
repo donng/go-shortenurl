@@ -12,6 +12,7 @@ import (
 type App struct {
 	Router     *chi.Mux
 	Middleware *Middleware
+	Config     *Env
 }
 
 type RequestParams struct {
@@ -19,9 +20,10 @@ type RequestParams struct {
 	Expire int
 }
 
-func (a *App) Init() {
+func (a *App) Init(env *Env) {
 	a.Router = chi.NewRouter()
 	a.Middleware = &Middleware{}
+	a.Config = env
 	a.InitRoutes()
 }
 
