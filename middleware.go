@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type Middleware struct {}
+type Middleware struct{}
 
 func (m *Middleware) LoggingHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

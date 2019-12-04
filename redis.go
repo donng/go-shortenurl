@@ -101,7 +101,6 @@ func (r *RedisCli) Shorten(url string, exp int) (string, error) {
 	return eid, nil
 }
 
-
 func (r *RedisCli) ShortLinkInfo(eid string) (interface{}, error) {
 	detail, err := r.Cli.Get(fmt.Sprintf(SHORT_LINK_DETAIL_KEY, eid)).Result()
 	if err == redis.Nil {
@@ -131,7 +130,7 @@ func (r *RedisCli) UnShorten(eid string) (string, error) {
 }
 
 func toSHA1(data string) string {
-	h := sha1.New();
+	h := sha1.New()
 	h.Write([]byte(data))
 	return hex.EncodeToString(h.Sum(nil))
 }
