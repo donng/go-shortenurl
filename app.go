@@ -12,22 +12,25 @@ import (
 type App struct {
 	Router     *chi.Mux
 	Middleware *Middleware
-	Config     *Env
+	Config     *Conf
+	// storage engine interface, eg. redis,database
+	Storage
 }
 
 type RequestParams struct {
 	Url    string
-	Expire int
+	Expire int64
 }
 
 type ResponseParams struct {
 	ShortLink string
 }
 
-func (a *App) Init(env *Env) {
+func (a *App) Init() {
 	a.Router = chi.NewRouter()
 	a.Middleware = &Middleware{}
-	a.Config = env
+	a.Config = InitConfig()
+	a.Storage = NewRedisClient(a.Config.Redis)
 	a.InitRoutes()
 }
 
@@ -54,7 +57,7 @@ func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	sid, err := a.Config.S.Shorten(params.Url, params.Expire)
+	sid, err := a.Storage.Shorten(params.Url, params.Expire)
 	if err != nil {
 		respondWithError(w, err)
 	} else {
@@ -64,7 +67,7 @@ func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) getShortLinkInfo(w http.ResponseWriter, r *http.Request) {
 	eid := r.Context().Value("link").(string)
-	detail, err := a.Config.S.ShortLinkInfo(eid)
+	detail, err := a.Storage.ShortLinkInfo(eid)
 	if err != nil {
 		respondWithError(w, err)
 	} else {
@@ -74,7 +77,7 @@ func (a *App) getShortLinkInfo(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) redirect(w http.ResponseWriter, r *http.Request) {
 	eid := chi.URLParam(r, "link")
-	url, err := a.Config.S.UnShorten(eid)
+	url, err := a.Storage.UnShorten(eid)
 	if err != nil {
 		respondWithError(w, err)
 	} else {

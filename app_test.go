@@ -25,7 +25,7 @@ type storageMock struct {
 var app App
 var mockR *storageMock
 
-func (s *storageMock) Shorten(url string, exp int) (string, error) {
+func (s *storageMock) Shorten(url string, exp int64) (string, error) {
 	args := s.Called(url, exp)
 	return args.String(0), args.Error(1)
 }

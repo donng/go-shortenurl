@@ -6,20 +6,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/go-redis/redis/v7"
 	"github.com/pilu/go-base62"
-	"time"
 )
 
 const (
-	URL_ID_KEY            = "next.url.id"         // 全局自增器
-	SHORT_LINK_KEY        = "shortlink:%s:url"    // 短地址和原地址的映射
-	URL_HASH_KEY          = "urlhash:%s:url"      // 地址hash和短地址的映射
-	SHORT_LINK_DETAIL_KEY = "shortlink:%s:detail" // 短地址和详情的映射
+	URLIdKey           = "next.url.id"         // 全局自增器
+	ShortLinkKey       = "shortlink:%s:url"    // 短地址和原地址的映射
+	URLHashKey         = "urlhash:%s:url"      // 地址hash和短地址的映射
+	ShortLinkDetailKey = "shortlink:%s:detail" // 短地址和详情的映射
 )
 
-type RedisCli struct {
-	Cli *redis.Client
+type RedisClient struct {
+	cli *redis.Client
 }
 
 type URLDetail struct {
@@ -28,25 +29,27 @@ type URLDetail struct {
 	ExpirationInMinutes time.Duration
 }
 
-func NewRedisCli(addr string, passwd string, db int) *RedisCli {
-	c := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: passwd,
-		DB:       db,
-	})
+func NewRedisClient(r *Redis) *RedisClient {
+	addr := fmt.Sprintf("%s:%d", r.Host, r.Port)
 
-	if _, err := c.Ping().Result(); err != nil {
+	client := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: r.Password,
+		DB:       r.DB,
+	})
+	if _, err := client.Ping().Result(); err != nil {
 		panic(err)
 	}
 
-	return &RedisCli{c}
+	return &RedisClient{client}
 }
 
-func (r *RedisCli) Shorten(url string, exp int) (string, error) {
-	h := toSHA1(url)
-	d, err := r.Cli.Get(fmt.Sprintf(URL_HASH_KEY, h)).Result()
+func (r *RedisClient) Shorten(url string, exp int64) (string, error) {
+	urlHash := toSHA1(url)
+
+	d, err := r.cli.Get(fmt.Sprintf(URLHashKey, urlHash)).Result()
 	if err == redis.Nil {
-		// not exist, nothing to do
+		// URLHashKey not exist, nothing to do
 	} else if err != nil {
 		return "", err
 	} else {
@@ -57,28 +60,24 @@ func (r *RedisCli) Shorten(url string, exp int) (string, error) {
 		}
 	}
 
-	// increase the global counter
-	err = r.Cli.Incr(URL_ID_KEY).Err()
+	// 1. increase the global counter
+	id, err := r.cli.Incr(URLIdKey).Result()
 	if err != nil {
 		return "", err
 	}
 
-	id, err := r.Cli.Get(URL_ID_KEY).Int()
-	if err != nil {
-		return "", err
-	}
 	// encode global counter to base62
-	// URL_ID_KEY 是单纯的数字，需要编码成字母数字的短地址形式
-	eid := base62.Encode(id)
+	// notice: int64->int is not safe where int is 32 bits
+	encodeId := base62.Encode(int(id))
 
-	// 存储短地址和原地址的映射
-	err = r.Cli.Set(fmt.Sprintf(SHORT_LINK_KEY, eid), url, time.Minute*time.Duration(exp)).Err()
+	// 2. save short link and origin url
+	err = r.cli.Set(fmt.Sprintf(ShortLinkKey, encodeId), url, time.Minute*time.Duration(exp)).Err()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
-	// 存储哈希值和短地址的映射
-	err = r.Cli.Set(fmt.Sprintf(URL_HASH_KEY, h), eid, time.Minute*time.Duration(exp)).Err()
+	// 3. save hash value and short link
+	err = r.cli.Set(fmt.Sprintf(URLHashKey, urlHash), encodeId, time.Minute*time.Duration(exp)).Err()
 	if err != nil {
 		return "", err
 	}
@@ -92,31 +91,17 @@ func (r *RedisCli) Shorten(url string, exp int) (string, error) {
 		return "", err
 	}
 
-	// 存储短地址和详情的映射
-	err = r.Cli.Set(fmt.Sprintf(SHORT_LINK_DETAIL_KEY, eid), detail, time.Minute*time.Duration(exp)).Err()
+	// 4. save short link and link detail
+	err = r.cli.Set(fmt.Sprintf(ShortLinkDetailKey, encodeId), detail, time.Minute*time.Duration(exp)).Err()
 	if err != nil {
 		return "", nil
 	}
 
-	return eid, nil
+	return encodeId, nil
 }
 
-func (r *RedisCli) ShortLinkInfo(eid string) (interface{}, error) {
-	detail, err := r.Cli.Get(fmt.Sprintf(SHORT_LINK_DETAIL_KEY, eid)).Result()
-	if err == redis.Nil {
-		return "", StatusError{
-			Code: 404,
-			Err:  errors.New("unknown short URL"),
-		}
-	} else if err != nil {
-		return "", err
-	}
-
-	return detail, nil
-}
-
-func (r *RedisCli) UnShorten(eid string) (string, error) {
-	url, err := r.Cli.Get(fmt.Sprintf(SHORT_LINK_KEY, eid)).Result()
+func (r *RedisClient) UnShorten(encodeId string) (string, error) {
+	url, err := r.cli.Get(fmt.Sprintf(ShortLinkKey, encodeId)).Result()
 	if err == redis.Nil {
 		return "", StatusError{
 			Code: 404,
@@ -127,6 +112,20 @@ func (r *RedisCli) UnShorten(eid string) (string, error) {
 	}
 
 	return url, nil
+}
+
+func (r *RedisClient) ShortLinkInfo(encodeId string) (interface{}, error) {
+	detail, err := r.cli.Get(fmt.Sprintf(ShortLinkDetailKey, encodeId)).Result()
+	if err == redis.Nil {
+		return "", StatusError{
+			Code: 404,
+			Err:  errors.New("unknown short URL"),
+		}
+	} else if err != nil {
+		return "", err
+	}
+
+	return detail, nil
 }
 
 func toSHA1(data string) string {
