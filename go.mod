@@ -1,4 +1,4 @@
-module go-shortenurl
+module github.com/donng/go-shortenurl
 
 go 1.13
 

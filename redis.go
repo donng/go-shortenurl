@@ -29,13 +29,13 @@ type URLDetail struct {
 	ExpirationInMinutes time.Duration
 }
 
-func NewRedisClient(r *Redis) *RedisClient {
-	addr := fmt.Sprintf("%s:%d", r.Host, r.Port)
+func NewRedisClient(rc *RedisConf) *RedisClient {
+	addr := fmt.Sprintf("%s:%d", rc.Host, rc.Port)
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
-		Password: r.Password,
-		DB:       r.DB,
+		Password: rc.Password,
+		DB:       rc.DB,
 	})
 	if _, err := client.Ping().Result(); err != nil {
 		panic(err)

@@ -5,15 +5,15 @@ import (
 )
 
 type Conf struct {
-	Server *Server
-	Redis  *Redis
+	Server *ServerConf
+	Redis  *RedisConf
 }
 
-type Server struct {
+type ServerConf struct {
 	HttpPort int
 }
 
-type Redis struct {
+type RedisConf struct {
 	Host     string
 	Password string
 	Port     int
@@ -26,8 +26,8 @@ func InitConfig() *Conf {
 		panic(err)
 	}
 
-	server := new(Server)
-	redis := new(Redis)
+	server := new(ServerConf)
+	redis := new(RedisConf)
 	err = cfg.Section("server").MapTo(server)
 	if err != nil {
 		panic(err)
