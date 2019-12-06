@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"log"
 	"net/http"
 
@@ -18,8 +19,8 @@ type App struct {
 }
 
 type RequestParams struct {
-	Url                 string `json:"url"`
-	ExpireInMinutes int64  `json:"expire_in_minutes"`
+	Url             string `json:"url" validate:"required"`
+	ExpireInMinutes int64  `json:"expire_in_minutes" validate:"required"`
 }
 
 type ResponseParams struct {
@@ -38,7 +39,7 @@ func (a *App) InitRoutes() {
 	a.Router.Use(a.Middleware.LoggingHandler, a.Middleware.RecoverHandler)
 
 	a.Router.Post("/api/shorten", a.createShortLink)
-	a.Router.Get("/api/info", a.getShortLinkInfo)
+	a.Router.Get("/api/info/{link:[a-zA-Z0-9]{1,11}}", a.getShortLinkInfo)
 	a.Router.Get("/{link:[a-zA-Z0-9]{1,11}}", a.redirect)
 }
 
@@ -52,10 +53,20 @@ func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		respondWithError(w, StatusError{
 			Code: http.StatusBadRequest,
-			Err:  fmt.Errorf("parse params error: %v", err),
+			Err:  fmt.Errorf("json parse error: %v", params),
 		})
 		return
 	}
+	// validate request params
+	validate := validator.New()
+	if err := validate.Struct(&params); err != nil {
+		respondWithError(w, StatusError{
+			Code: http.StatusBadRequest,
+			Err:  fmt.Errorf("json validate error: %v", params),
+		})
+		return
+	}
+
 	defer r.Body.Close()
 
 	encodeId, err := a.Storage.Shorten(params.Url, params.ExpireInMinutes)
@@ -67,7 +78,7 @@ func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) getShortLinkInfo(w http.ResponseWriter, r *http.Request) {
-	encodeId := r.Context().Value("link").(string)
+	encodeId := chi.URLParam(r, "link")
 	detail, err := a.Storage.ShortLinkInfo(encodeId)
 	if err != nil {
 		respondWithError(w, err)

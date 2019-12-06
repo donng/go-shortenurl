@@ -31,7 +31,7 @@ PARAMS: { "url": "https:www.example.com", "expire_in_minutes": 60 }
 ### get shorten url info
 
 ```
-API: /api/info?link=?
+API: /api/info/{link}
 METHOD: GET
 ```
 

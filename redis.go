@@ -105,7 +105,7 @@ func (r *RedisClient) UnShorten(encodeId string) (string, error) {
 	if err == redis.Nil {
 		return "", StatusError{
 			Code: 404,
-			Err:  errors.New("unknown short URL"),
+			Err:  errors.New("unknown short link"),
 		}
 	} else if err != nil {
 		return "", err
@@ -119,7 +119,7 @@ func (r *RedisClient) ShortLinkInfo(encodeId string) (interface{}, error) {
 	if err == redis.Nil {
 		return "", StatusError{
 			Code: 404,
-			Err:  errors.New("unknown short URL"),
+			Err:  errors.New("unknown short link"),
 		}
 	} else if err != nil {
 		return "", err
