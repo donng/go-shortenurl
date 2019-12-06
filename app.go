@@ -18,15 +18,15 @@ type App struct {
 }
 
 type RequestParams struct {
-	Url    string
-	Expire int64
+	Url                 string `json:"url"`
+	ExpireInMinutes int64  `json:"expire_in_minutes"`
 }
 
 type ResponseParams struct {
-	ShortLink string
+	ShortLink string `json:"short_link"`
 }
 
-func (a *App) Init() {
+func (a *App) InitApp() {
 	a.Router = chi.NewRouter()
 	a.Middleware = &Middleware{}
 	a.Config = InitConfig()
@@ -35,15 +35,16 @@ func (a *App) Init() {
 }
 
 func (a *App) InitRoutes() {
-	a.Router.Use(a.Middleware.LoggingHandler)
+	a.Router.Use(a.Middleware.LoggingHandler, a.Middleware.RecoverHandler)
 
 	a.Router.Post("/api/shorten", a.createShortLink)
 	a.Router.Get("/api/info", a.getShortLinkInfo)
 	a.Router.Get("/{link:[a-zA-Z0-9]{1,11}}", a.redirect)
 }
 
-func (a *App) Run(addr string) {
-	log.Fatal(http.ListenAndServe(addr, a.Router))
+func (a *App) Run() {
+	log.Fatal(http.ListenAndServe(
+		fmt.Sprintf(":%d", a.Config.Server.HttpPort), a.Router))
 }
 
 func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
@@ -57,17 +58,17 @@ func (a *App) createShortLink(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	sid, err := a.Storage.Shorten(params.Url, params.Expire)
+	encodeId, err := a.Storage.Shorten(params.Url, params.ExpireInMinutes)
 	if err != nil {
 		respondWithError(w, err)
 	} else {
-		respondWithJson(w, http.StatusOK, ResponseParams{ShortLink: sid})
+		respondWithJson(w, http.StatusOK, ResponseParams{ShortLink: encodeId})
 	}
 }
 
 func (a *App) getShortLinkInfo(w http.ResponseWriter, r *http.Request) {
-	eid := r.Context().Value("link").(string)
-	detail, err := a.Storage.ShortLinkInfo(eid)
+	encodeId := r.Context().Value("link").(string)
+	detail, err := a.Storage.ShortLinkInfo(encodeId)
 	if err != nil {
 		respondWithError(w, err)
 	} else {
@@ -76,8 +77,8 @@ func (a *App) getShortLinkInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) redirect(w http.ResponseWriter, r *http.Request) {
-	eid := chi.URLParam(r, "link")
-	url, err := a.Storage.UnShorten(eid)
+	encodeId := chi.URLParam(r, "link")
+	url, err := a.Storage.UnShorten(encodeId)
 	if err != nil {
 		respondWithError(w, err)
 	} else {

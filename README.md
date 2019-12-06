@@ -1,4 +1,4 @@
-`go-shortenurl` is a short url service，based on a free course of mooc - [Go开发短地址服务](https://www.imooc.com/learn/1150) .
+`go-shortenurl` is a url shorten service，based on a free course of mooc - [Go开发短地址服务](https://www.imooc.com/learn/1150) .
 
 ## Installation
 
@@ -25,7 +25,7 @@ there are three simple apis
 ```
 API：/api/shorten
 METHOD：POST
-PARAMS: { "url": "https:www.example.com", "expire": 60 }
+PARAMS: { "url": "https:www.example.com", "expire_in_minutes": 60 }
 ```
 
 ### get shorten url info
