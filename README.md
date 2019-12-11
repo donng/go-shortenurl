@@ -1,3 +1,5 @@
+![](https://img.shields.io/badge/language-go-blue.svg) ![](https://github.com/donng/go-shortenurl/workflows/go%20build/badge.svg)
+
 `go-shortenurl` is a url shorten service，based on a free course of mooc - [Go开发短地址服务](https://www.imooc.com/learn/1150) .
 
 ## Installation
