@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"log"
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/go-playground/validator/v10"
 )
 
 type App struct {

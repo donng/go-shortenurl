@@ -37,7 +37,7 @@ func respondWithError(w http.ResponseWriter, err error) {
 func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
 	resp, _ := json.Marshal(payload)
 
-	w.WriteHeader(code)
 	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(code)
 	w.Write(resp)
 }

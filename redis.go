@@ -114,18 +114,22 @@ func (r *RedisClient) UnShorten(encodeId string) (string, error) {
 	return url, nil
 }
 
-func (r *RedisClient) ShortLinkInfo(encodeId string) (interface{}, error) {
+func (r *RedisClient) ShortLinkInfo(encodeId string) (URLDetail, error) {
+	var detailInfo URLDetail
 	detail, err := r.cli.Get(fmt.Sprintf(ShortLinkDetailKey, encodeId)).Result()
 	if err == redis.Nil {
-		return "", StatusError{
+		return detailInfo, StatusError{
 			Code: 404,
 			Err:  errors.New("unknown short link"),
 		}
 	} else if err != nil {
-		return "", err
+		return detailInfo, err
 	}
-
-	return detail, nil
+	err = json.Unmarshal([]byte(detail) , &detailInfo)
+	if err != nil {
+		return detailInfo, err
+	}
+	return detailInfo, nil
 }
 
 func toSHA1(data string) string {
